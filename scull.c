@@ -1,6 +1,7 @@
 /* scull.c */
 #include <linux/fs.h>
 #include <linux/init.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -15,16 +16,32 @@ loff_t scull_llseek(struct file *file, loff_t off, int num)
 
 ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 {
+        printk(KERN_ALERT "scull: read\n");
+
         return 0;
 }
 
 ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_t *off)
 {
+        printk(KERN_ALERT "scull: write\n");
+
         return 0;
 }
 
 int scull_open(struct inode *inode, struct file *file)
 {
+        struct cdev *cdev;
+        struct scull_dev *scull_dev;
+
+        /* use inode to get cdev */
+        cdev = inode->i_cdev;
+
+        /* use cdev to get scull_dev */
+        scull_dev = container_of(cdev, struct scull_dev, cdev);
+
+        /* add scull_dev to file's private data, so .read/.write... can use  */
+        file->private_data = scull_dev;
+
         return 0;
 }
 
