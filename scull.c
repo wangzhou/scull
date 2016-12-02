@@ -19,12 +19,46 @@ loff_t scull_llseek(struct file *file, loff_t off, int num)
 
 ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 {
+        int i;
+        int qset_n;
+        int quantum_n;
+        int count;
+        int qset_bytes;
+        int read_bytes;
+        int off_n = *off;
         struct scull_dev *scull_dev = file->private_data;
+        struct scull_qset *iter_qset = scull_dev->head;
 
         /* find related quantum index */
-        /* caculate how many bytes can be read out from this quantum */
-        /* copy data to userspace buffer */
+        qset_bytes = scull_dev->qset * scull_dev->quantum;
+        qset_n = off_n / qset_bytes;
+        quantum_n = off_n % qset_bytes / quantum;
+        count = off_n % qset_bytes % quantum;
 
+        /* caculate how many bytes can be read out from this quantum */
+        read_bytes = scull_dev->quantum - count;
+
+        /* find the start point or no data there */
+        for (i = 0; i <= qset_n; i++) {
+                if (!iter_qset->next && i != qset_n)
+                        return -ENOMEM;
+                if (i != qset_n)
+                        iter_qset = iter_qset->next;
+        }
+
+        /* no date */
+        if (!iter_qset->data || !iter_qset->data[quantum_n])
+                return -ENOMEM;
+
+        /* copy data to userspace buffer */
+        copy_to_user(buf, iter_qset->data[quantum_n] + count, read_bytes);
+
+        /* update off */
+        *off = off_n + read_bytes;
+
+        /* error handle */
+
+        /* test print */
         printk(KERN_ALERT "scull: read\n");
 
         return 0;
