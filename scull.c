@@ -1,10 +1,13 @@
 /* scull.c */
+#include <asm-generic/uaccess.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/types.h>
+#include <uapi/asm-generic/errno-base.h>
 #include "scull.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
@@ -16,6 +19,12 @@ loff_t scull_llseek(struct file *file, loff_t off, int num)
 
 ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 {
+        struct scull_dev *scull_dev = file->private_data;
+
+        /* find related quantum index */
+        /* caculate how many bytes can be read out from this quantum */
+        /* copy data to userspace buffer */
+
         printk(KERN_ALERT "scull: read\n");
 
         return 0;
@@ -23,9 +32,72 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 
 ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_t *off)
 {
+        int i;
+        int qset_n;
+        int quantum_n;
+        int count;
+        int qset_bytes;
+        int write_bytes;
+        int off_n = *off;
+        struct scull_dev *scull_dev = file->private_data;
+        struct scull_qset *p_qset, *iter_qset = scull_dev->head;
+
+        /* find related quantum index */
+        qset_bytes = scull_dev->qset * scull_dev->quantum;
+        qset_n = off_n / qset_bytes;
+        quantum_n = off_n % qset_bytes / quantum;
+        count = off_n % qset_bytes % quantum;
+
+        /* caculate how many bytes should be written into this quantum */
+        write_bytes = scull_dev->quantum - count;
+
+        /*
+         * create related quantum. we will release quantum in scull_release
+         * 1. find scull_qset from list; 2. create qset; 3. create quantum.
+         */
+        for (i = 0; i <= qset_n; i++) {
+                if (iter_qset->next == NULL) {
+                        /* create struct scull_qset; */
+                        p_qset = kmalloc(sizeof(struct scull_qset), GFP_KERNEL);
+                        if (p_qset->next == NULL)
+                                return -ENOMEM;
+                        memset(p_qset, 0, sizeof(struct scull_qset));
+
+                        iter_qset->next = p_qset;
+                        p_qset->next = NULL;
+                }
+                if (i != qset_n)
+                        iter_qset = iter_qset->next;
+        }
+
+        /* iter_qset->data = create qset */
+        if (!iter_qset->data) {
+                iter_qset->data = kmalloc(sizeof(int *) * scull_dev->qset, GFP_KERNEL);
+                if (iter_qset->data == NULL)
+                        return -ENOMEM;
+                memset(iter_qset->data, 0, sizeof(int *) * scull_dev->qset);
+        }
+
+        /* data[quantum] = create quantum */
+        if (!iter_qset->data[quantum_n]) {
+                iter_qset->data[quantum_n] = kmalloc(sizeof(char) * scull_dev->quantum, GFP_KERNEL);
+                if (iter_qset->data[quantum_n] == NULL)
+                        return -ENOMEM;
+                memset(iter_qset->data[quantum_n], 0, sizeof(char) * scull_dev->quantum);
+        }
+
+        /* copy data from userspace buffer */
+        copy_from_user(iter_qset->data[quantum_n] + count, buf, write_bytes);
+
+        /* update off */
+        *off = off_n + write_bytes;
+
+        /* error handle */
+
         printk(KERN_ALERT "scull: write\n");
 
-        return 0;
+        /* return number of bytes we wrote */
+        return write_bytes;
 }
 
 int scull_open(struct inode *inode, struct file *file)
@@ -73,6 +145,8 @@ static int __init scull_init(void)
         if (!scull_dev) {
                 
         }
+
+        /* will offer different ways to set qset and quantum */
 
         scull_dev->head = NULL;
         scull_dev->qset = qset;
