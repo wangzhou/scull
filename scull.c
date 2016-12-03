@@ -12,6 +12,23 @@
 
 MODULE_LICENSE("Dual BSD/GPL");
 
+static void scull_free_qset_list(struct scull_qset *head)
+{
+        struct scull_qset *tmp;
+
+        if (!head->next)
+                return;
+
+        tmp = head->next->next;
+        kfree(head->next);
+        head->next = head->next->next;
+
+        scull_free_qset_list(head);
+
+        /* finanl return */
+        return;
+}
+
 loff_t scull_llseek(struct file *file, loff_t off, int num)
 {
         return 0;
@@ -153,6 +170,42 @@ int scull_open(struct inode *inode, struct file *file)
 
 int scull_release(struct inode *inode, struct file *file)
 {
+        int i;
+        struct scull_dev *scull_dev = file->private_data;
+        int qset = scull_dev->qset;
+        struct scull_qset *iter_qset = scull_dev->head;
+
+        while (iter_qset != NULL) {
+                if (iter_qset == scull_dev->head) {
+                        iter_qset = iter_qset->next;
+                        continue;
+                }
+
+                if (!iter_qset->data) {
+                        iter_qset = iter_qset->next;
+                        continue;
+                } else {
+                        for (i = 0; i < qset; i++) {
+                                if (!iter_qset->data[i]) {
+                                        continue;
+                                } else {
+                                        kfree(iter_qset->data[i]);
+                                }
+                        }
+
+                        kfree(iter_qset->data);
+                }
+
+                iter_qset = iter_qset->next;
+        }
+
+        /* free scull_qset list */
+        iter_qset = scull_dev->head;
+        scull_free_qset_list(iter_qset);
+
+        /* free scull_dev */
+        kfree(scull_dev);
+
         return 0;
 }
 
