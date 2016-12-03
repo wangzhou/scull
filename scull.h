@@ -9,7 +9,7 @@ struct scull_qset {
 };
 
 struct scull_dev {
-        struct scull_qset *head;
+        struct scull_qset head;
         int qset;
         int quantum;
         unsigned long size;

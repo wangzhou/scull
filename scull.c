@@ -44,7 +44,7 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
         int read_bytes;
         int off_n = *off;
         struct scull_dev *scull_dev = file->private_data;
-        struct scull_qset *iter_qset = scull_dev->head;
+        struct scull_qset *iter_qset = &scull_dev->head;
 
         /* find related quantum index */
         qset_bytes = scull_dev->qset * scull_dev->quantum;
@@ -91,7 +91,7 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
         int write_bytes;
         int off_n = *off;
         struct scull_dev *scull_dev = file->private_data;
-        struct scull_qset *p_qset, *iter_qset = scull_dev->head;
+        struct scull_qset *p_qset, *iter_qset = &scull_dev->head;
 
         /* find related quantum index */
         qset_bytes = scull_dev->qset * scull_dev->quantum;
@@ -170,13 +170,14 @@ int scull_open(struct inode *inode, struct file *file)
 
 int scull_release(struct inode *inode, struct file *file)
 {
+#if 0
         int i;
         struct scull_dev *scull_dev = file->private_data;
         int qset = scull_dev->qset;
-        struct scull_qset *iter_qset = scull_dev->head;
+        struct scull_qset *iter_qset = &scull_dev->head;
 
         while (iter_qset != NULL) {
-                if (iter_qset == scull_dev->head) {
+                if (iter_qset == &scull_dev->head) {
                         iter_qset = iter_qset->next;
                         continue;
                 }
@@ -200,12 +201,12 @@ int scull_release(struct inode *inode, struct file *file)
         }
 
         /* free scull_qset list */
-        iter_qset = scull_dev->head;
+        iter_qset = &scull_dev->head;
         scull_free_qset_list(iter_qset);
 
         /* free scull_dev */
         kfree(scull_dev);
-
+#endif
         return 0;
 }
 
@@ -235,7 +236,8 @@ static int __init scull_init(void)
 
         /* will offer different ways to set qset and quantum */
 
-        scull_dev->head = NULL;
+        scull_dev->head.data = NULL;
+        scull_dev->head.next = NULL;
         scull_dev->qset = qset;
         scull_dev->quantum = quantum;
         scull_dev->size = 0;
