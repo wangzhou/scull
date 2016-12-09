@@ -12,6 +12,8 @@
 #include "debug.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
+module_param(qset, int, S_IRUGO);
+module_param(quantum, int, S_IRUGO);
 
 struct scull_dev *scull_device;
 
