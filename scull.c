@@ -9,8 +9,11 @@
 #include <linux/types.h>
 #include <uapi/asm-generic/errno-base.h>
 #include "scull.h"
+#include "debug.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
+
+struct scull_dev *scull_dev;
 
 static void scull_free_qset_list(struct scull_qset *head)
 {
@@ -186,43 +189,6 @@ int scull_open(struct inode *inode, struct file *file)
 
 int scull_release(struct inode *inode, struct file *file)
 {
-#if 0
-        int i;
-        struct scull_dev *scull_dev = file->private_data;
-        int qset = scull_dev->qset;
-        struct scull_qset *iter_qset = &scull_dev->head;
-
-        while (iter_qset != NULL) {
-                if (iter_qset == &scull_dev->head) {
-                        iter_qset = iter_qset->next;
-                        continue;
-                }
-
-                if (!iter_qset->data) {
-                        iter_qset = iter_qset->next;
-                        continue;
-                } else {
-                        for (i = 0; i < qset; i++) {
-                                if (!iter_qset->data[i]) {
-                                        continue;
-                                } else {
-                                        kfree(iter_qset->data[i]);
-                                }
-                        }
-
-                        kfree(iter_qset->data);
-                }
-
-                iter_qset = iter_qset->next;
-        }
-
-        /* free scull_qset list */
-        iter_qset = &scull_dev->head;
-        scull_free_qset_list(iter_qset);
-
-        /* free scull_dev */
-        kfree(scull_dev);
-#endif
         return 0;
 }
 
@@ -240,7 +206,6 @@ static int __init scull_init(void)
 {
         dev_t dev_id;
         int err = 0;
-        struct scull_dev *scull_dev;
         unsigned int firstminor = 0;
         unsigned int count = 1;
         char *dev_name = "scull";
@@ -273,6 +238,41 @@ static int __init scull_init(void)
 
 static void __exit scull_exit(void)
 {
+        int i;
+        struct scull_dev *scull_dev = scull_dev;
+        int qset = scull_dev->qset;
+        struct scull_qset *iter_qset = &scull_dev->head;
+
+        while (iter_qset != NULL) {
+                if (iter_qset == &scull_dev->head) {
+                        iter_qset = iter_qset->next;
+                        continue;
+                }
+
+                if (!iter_qset->data) {
+                        iter_qset = iter_qset->next;
+                        continue;
+                } else {
+                        for (i = 0; i < qset; i++) {
+                                if (!iter_qset->data[i]) {
+                                        continue;
+                                } else {
+                                        kfree(iter_qset->data[i]);
+                                }
+                        }
+
+                        kfree(iter_qset->data);
+                        iter_qset = iter_qset->next;
+                }
+        }
+
+        /* free scull_qset list */
+        iter_qset = &scull_dev->head;
+        scull_free_qset_list(iter_qset);
+
+        /* free scull_dev */
+        kfree(scull_dev);
+
         printk(KERN_ALERT "Goodbye, cruel world\n");
 }
 
