@@ -12,11 +12,11 @@
 
 
 int qset = 1000;
-int quantum = 4000;
+int quantum = 5000;
 
 struct scull_qset {
         struct scull_qset *next;
-        int **data;
+        char **data;
 };
 
 struct scull_dev {

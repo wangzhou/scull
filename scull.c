@@ -46,29 +46,57 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
         struct scull_dev *scull_dev = file->private_data;
         struct scull_qset *iter_qset = &scull_dev->head;
 
+        /* very important!! */
+        if (off_n > scull_dev->size - 1)
+                return 0;
+        if (off_n + num > scull_dev->size - 1)
+                num = scull_dev->size - off_n;
+
         /* find related quantum index */
         qset_bytes = scull_dev->qset * scull_dev->quantum;
         qset_n = off_n / qset_bytes;
         quantum_n = off_n % qset_bytes / quantum;
         count = off_n % qset_bytes % quantum;
 
+        pr_warn("in %s: qset_bytes: %d, qset_n: %d, quantum_n: %d, count: %d\n", __FUNCTION__, qset_bytes, qset_n, quantum_n, count);
+        pr_warn("in %s: num: %d\n", __FUNCTION__, num);
+
         /* caculate how many bytes can be read out from this quantum */
-        read_bytes = scull_dev->quantum - count;
+        if (num < scull_dev->quantum - count)
+                read_bytes = num;
+        else
+                read_bytes = scull_dev->quantum - count;
+
+        pr_warn("in %s: read_bytes: %d\n", __FUNCTION__, read_bytes);
 
         /* find the start point or no data there */
         for (i = 0; i <= qset_n; i++) {
-                if (!iter_qset->next && i != qset_n)
+                if (!iter_qset->next)
                         return -ENOMEM;
                 if (i != qset_n)
                         iter_qset = iter_qset->next;
         }
 
+        iter_qset = iter_qset->next;
+        pr_warn("in %s: iter_qset: %p\n", __FUNCTION__, iter_qset);
+        pr_warn("in %s: data: %p\n", __FUNCTION__, iter_qset->data);
+
+//        pr_warn("in %s: data: %p, data[quantum_n]: %p\n", __FUNCTION__, iter_qset->data, iter_qset->data[quantum_n]);
         /* no date */
         if (!iter_qset->data || !iter_qset->data[quantum_n])
                 return -ENOMEM;
 
+        pr_warn("in %s: byte_1: %c\n", __FUNCTION__, *iter_qset->data[quantum_n]);
+        pr_warn("in %s: byte_2: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 1));
+        pr_warn("in %s: byte_3: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 2));
+        pr_warn("in %s: byte_4: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 3));
+        pr_warn("in %s: byte_5: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 4));
+        pr_warn("in %s: byte_6: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 5));
+
         /* copy data to userspace buffer */
-        copy_to_user(buf, iter_qset->data[quantum_n] + count, read_bytes);
+        int result = copy_to_user(buf, iter_qset->data[quantum_n], read_bytes);
+
+        pr_warn("in %s: result: %d\n", __FUNCTION__, result);
 
         /* update off */
         *off = off_n + read_bytes;
@@ -78,7 +106,7 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
         /* test print */
         printk(KERN_ALERT "scull: read\n");
 
-        return 0;
+        return read_bytes;
 }
 
 ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_t *off)
@@ -99,8 +127,15 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
         quantum_n = off_n % qset_bytes / quantum;
         count = off_n % qset_bytes % quantum;
 
+        pr_warn("in %s: qset_bytes: %d, qset_n: %d, quantum_n: %d, count: %d\n", __FUNCTION__, qset_bytes, qset_n, quantum_n, count);
+
         /* caculate how many bytes should be written into this quantum */
-        write_bytes = scull_dev->quantum - count;
+        if (num < scull_dev->quantum - count)
+                write_bytes = num;
+        else
+                write_bytes = scull_dev->quantum - count;
+
+        pr_warn("in %s: write_bytes: %d\n", __FUNCTION__, write_bytes);
 
         /*
          * create related quantum. we will release quantum in scull_release
@@ -110,23 +145,23 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
                 if (iter_qset->next == NULL) {
                         /* create struct scull_qset; */
                         p_qset = kmalloc(sizeof(struct scull_qset), GFP_KERNEL);
-                        if (p_qset->next == NULL)
+                        if (!p_qset)
                                 return -ENOMEM;
                         memset(p_qset, 0, sizeof(struct scull_qset));
 
                         iter_qset->next = p_qset;
                         p_qset->next = NULL;
                 }
-                if (i != qset_n)
-                        iter_qset = iter_qset->next;
+                        
+                iter_qset = iter_qset->next;
         }
 
         /* iter_qset->data = create qset */
         if (!iter_qset->data) {
-                iter_qset->data = kmalloc(sizeof(int *) * scull_dev->qset, GFP_KERNEL);
+                iter_qset->data = kmalloc(sizeof(char *) * scull_dev->qset, GFP_KERNEL);
                 if (iter_qset->data == NULL)
                         return -ENOMEM;
-                memset(iter_qset->data, 0, sizeof(int *) * scull_dev->qset);
+                memset(iter_qset->data, 0, sizeof(char *) * scull_dev->qset);
         }
 
         /* data[quantum] = create quantum */
@@ -139,6 +174,11 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
 
         /* copy data from userspace buffer */
         copy_from_user(iter_qset->data[quantum_n] + count, buf, write_bytes);
+
+        scull_dev->size = scull_dev->size + write_bytes;
+
+        pr_warn("in %s: iter_qset: %p\n", __FUNCTION__, iter_qset);
+        pr_warn("in %s: data: %p, data[quantum_n]: %p\n", __FUNCTION__, iter_qset->data, iter_qset->data[quantum_n]);
 
         /* update off */
         *off = off_n + write_bytes;
@@ -212,9 +252,10 @@ int scull_release(struct inode *inode, struct file *file)
 
 struct file_operations scull_fops = {
         .owner = THIS_MODULE,
-        .llseek = scull_llseek,
+        .llseek = NULL,
         .read = scull_read,
         .write = scull_write,
+        .unlocked_ioctl = NULL,
         .open = scull_open,
         .release = scull_release,
 };
