@@ -21,7 +21,7 @@ static void scull_free_qset_list(struct scull_qset *head)
 
         tmp = head->next->next;
         kfree(head->next);
-        head->next = head->next->next;
+        head->next = tmp;
 
         scull_free_qset_list(head);
 
@@ -58,16 +58,11 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
         quantum_n = off_n % qset_bytes / quantum;
         count = off_n % qset_bytes % quantum;
 
-        pr_warn("in %s: qset_bytes: %d, qset_n: %d, quantum_n: %d, count: %d\n", __FUNCTION__, qset_bytes, qset_n, quantum_n, count);
-        pr_warn("in %s: num: %d\n", __FUNCTION__, num);
-
         /* caculate how many bytes can be read out from this quantum */
         if (num < scull_dev->quantum - count)
                 read_bytes = num;
         else
                 read_bytes = scull_dev->quantum - count;
-
-        pr_warn("in %s: read_bytes: %d\n", __FUNCTION__, read_bytes);
 
         /* find the start point or no data there */
         for (i = 0; i <= qset_n; i++) {
@@ -78,25 +73,13 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
         }
 
         iter_qset = iter_qset->next;
-        pr_warn("in %s: iter_qset: %p\n", __FUNCTION__, iter_qset);
-        pr_warn("in %s: data: %p\n", __FUNCTION__, iter_qset->data);
 
-//        pr_warn("in %s: data: %p, data[quantum_n]: %p\n", __FUNCTION__, iter_qset->data, iter_qset->data[quantum_n]);
         /* no date */
         if (!iter_qset->data || !iter_qset->data[quantum_n])
                 return -ENOMEM;
 
-        pr_warn("in %s: byte_1: %c\n", __FUNCTION__, *iter_qset->data[quantum_n]);
-        pr_warn("in %s: byte_2: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 1));
-        pr_warn("in %s: byte_3: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 2));
-        pr_warn("in %s: byte_4: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 3));
-        pr_warn("in %s: byte_5: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 4));
-        pr_warn("in %s: byte_6: %c\n", __FUNCTION__, *(iter_qset->data[quantum_n] + 5));
-
         /* copy data to userspace buffer */
         int result = copy_to_user(buf, iter_qset->data[quantum_n], read_bytes);
-
-        pr_warn("in %s: result: %d\n", __FUNCTION__, result);
 
         /* update off */
         *off = off_n + read_bytes;
@@ -127,15 +110,11 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
         quantum_n = off_n % qset_bytes / quantum;
         count = off_n % qset_bytes % quantum;
 
-        pr_warn("in %s: qset_bytes: %d, qset_n: %d, quantum_n: %d, count: %d\n", __FUNCTION__, qset_bytes, qset_n, quantum_n, count);
-
         /* caculate how many bytes should be written into this quantum */
         if (num < scull_dev->quantum - count)
                 write_bytes = num;
         else
                 write_bytes = scull_dev->quantum - count;
-
-        pr_warn("in %s: write_bytes: %d\n", __FUNCTION__, write_bytes);
 
         /*
          * create related quantum. we will release quantum in scull_release
@@ -176,9 +155,6 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
         copy_from_user(iter_qset->data[quantum_n] + count, buf, write_bytes);
 
         scull_dev->size = scull_dev->size + write_bytes;
-
-        pr_warn("in %s: iter_qset: %p\n", __FUNCTION__, iter_qset);
-        pr_warn("in %s: data: %p, data[quantum_n]: %p\n", __FUNCTION__, iter_qset->data, iter_qset->data[quantum_n]);
 
         /* update off */
         *off = off_n + write_bytes;
