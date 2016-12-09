@@ -13,7 +13,7 @@
 
 MODULE_LICENSE("Dual BSD/GPL");
 
-struct scull_dev *scull_dev;
+struct scull_dev *scull_device;
 
 static void scull_free_qset_list(struct scull_qset *head)
 {
@@ -211,25 +211,25 @@ static int __init scull_init(void)
         char *dev_name = "scull";
 
         /* create scull_dev */
-        scull_dev = kmalloc(sizeof(struct scull_dev), GFP_KERNEL);
-        if (!scull_dev) {
+        scull_device = kmalloc(sizeof(struct scull_dev), GFP_KERNEL);
+        if (!scull_device) {
                 
         }
 
         /* will offer different ways to set qset and quantum */
 
-        scull_dev->head.data = NULL;
-        scull_dev->head.next = NULL;
-        scull_dev->qset = qset;
-        scull_dev->quantum = quantum;
-        scull_dev->size = 0;
+        scull_device->head.data = NULL;
+        scull_device->head.next = NULL;
+        scull_device->qset = qset;
+        scull_device->quantum = quantum;
+        scull_device->size = 0;
 
         /* alloc dev_id */
         err = alloc_chrdev_region(&dev_id, firstminor, count, dev_name);
 
         /* register cdev */
-        cdev_init(&scull_dev->cdev, &scull_fops);
-        cdev_add(&scull_dev->cdev, dev_id, count);
+        cdev_init(&scull_device->cdev, &scull_fops);
+        cdev_add(&scull_device->cdev, dev_id, count);
 
         /* init scull_dev */
 
@@ -239,7 +239,7 @@ static int __init scull_init(void)
 static void __exit scull_exit(void)
 {
         int i;
-        struct scull_dev *scull_dev = scull_dev;
+        struct scull_dev *scull_dev = scull_device;
         int qset = scull_dev->qset;
         struct scull_qset *iter_qset = &scull_dev->head;
 
