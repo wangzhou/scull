@@ -42,6 +42,7 @@ loff_t scull_llseek(struct file *file, loff_t off, int num)
 ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 {
         int i;
+        int result;
         int qset_n;
         int quantum_n;
         int count;
@@ -71,8 +72,10 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 
         /* find the start point or no data there */
         for (i = 0; i <= qset_n; i++) {
-                if (!iter_qset->next)
+                if (!iter_qset->next) {
+                        ASSERT(0);
                         return -ENOMEM;
+                }
                 if (i != qset_n)
                         iter_qset = iter_qset->next;
         }
@@ -80,11 +83,17 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
         iter_qset = iter_qset->next;
 
         /* no date */
-        if (!iter_qset->data || !iter_qset->data[quantum_n])
+        if (!iter_qset->data || !iter_qset->data[quantum_n]) {
+                ASSERT(0);
                 return -ENOMEM;
+        }
 
         /* copy data to userspace buffer */
-        int result = copy_to_user(buf, iter_qset->data[quantum_n], read_bytes);
+        result = copy_to_user(buf, iter_qset->data[quantum_n], read_bytes);
+        if (result < 0) {
+                pr_err("scull: can not copy data to user space\n");
+                return result;
+        }
 
         /* update off */
         *off = off_n + read_bytes;
@@ -100,6 +109,7 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_t *off)
 {
         int i;
+        int result;
         int qset_n;
         int quantum_n;
         int count;
@@ -129,8 +139,10 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
                 if (iter_qset->next == NULL) {
                         /* create struct scull_qset; */
                         p_qset = kmalloc(sizeof(struct scull_qset), GFP_KERNEL);
-                        if (!p_qset)
+                        if (!p_qset) {
+                                ASSERT(0);
                                 return -ENOMEM;
+                        }
                         memset(p_qset, 0, sizeof(struct scull_qset));
 
                         iter_qset->next = p_qset;
@@ -143,21 +155,29 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
         /* iter_qset->data = create qset */
         if (!iter_qset->data) {
                 iter_qset->data = kmalloc(sizeof(char *) * scull_dev->qset, GFP_KERNEL);
-                if (iter_qset->data == NULL)
+                if (iter_qset->data == NULL) {
+                        ASSERT(0);
                         return -ENOMEM;
+                }
                 memset(iter_qset->data, 0, sizeof(char *) * scull_dev->qset);
         }
 
         /* data[quantum] = create quantum */
         if (!iter_qset->data[quantum_n]) {
                 iter_qset->data[quantum_n] = kmalloc(sizeof(char) * scull_dev->quantum, GFP_KERNEL);
-                if (iter_qset->data[quantum_n] == NULL)
+                if (iter_qset->data[quantum_n] == NULL) {
+                        ASSERT(0);
                         return -ENOMEM;
+                }
                 memset(iter_qset->data[quantum_n], 0, sizeof(char) * scull_dev->quantum);
         }
 
         /* copy data from userspace buffer */
-        copy_from_user(iter_qset->data[quantum_n] + count, buf, write_bytes);
+        result = copy_from_user(iter_qset->data[quantum_n] + count, buf, write_bytes);
+        if (result < 0) {
+                pr_err("scull: can not copy data from user space\n");
+                return result;
+        }
 
         scull_dev->size = scull_dev->size + write_bytes;
 
@@ -215,11 +235,13 @@ static int __init scull_init(void)
         /* create scull_dev */
         scull_device = kmalloc(sizeof(struct scull_dev), GFP_KERNEL);
         if (!scull_device) {
-                
+                ASSERT(0);
+                return -ENOMEM;
         }
-
-        /* will offer different ways to set qset and quantum */
-
+        /*
+         * offer different ways to set qset and quantum: now we have default
+         * value, and we can set them by module parametres.
+         */
         scull_device->head.data = NULL;
         scull_device->head.next = NULL;
         scull_device->qset = qset;
@@ -228,12 +250,19 @@ static int __init scull_init(void)
 
         /* alloc dev_id */
         err = alloc_chrdev_region(&dev_id, firstminor, count, dev_name);
+        if (err < 0) {
+                /* can we use dev_err here? It seems no struct device for a cdev */
+                pr_err("scull: can not allocate a cdev\n");
+                return err;
+        }
 
         /* register cdev */
         cdev_init(&scull_device->cdev, &scull_fops);
-        cdev_add(&scull_device->cdev, dev_id, count);
-
-        /* init scull_dev */
+        err = cdev_add(&scull_device->cdev, dev_id, count);
+        if (err < 0) {
+                pr_err("scull: can not add a cdev to system\n");
+                return err;
+        }
 
         return 0;
 }
@@ -271,6 +300,9 @@ static void __exit scull_exit(void)
         /* free scull_qset list */
         iter_qset = &scull_dev->head;
         scull_free_qset_list(iter_qset);
+
+        /* remove cdev before free scull_device */
+        cdev_del(&scull_dev->cdev);
 
         /* free scull_dev */
         kfree(scull_dev);
