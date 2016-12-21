@@ -1,5 +1,6 @@
 /* scull.c */
 #include <asm-generic/uaccess.h>
+#include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -16,6 +17,7 @@ module_param(qset, int, S_IRUGO);
 module_param(quantum, int, S_IRUGO);
 
 struct scull_dev *scull_device;
+struct class *scull_class;
 
 static void scull_free_qset_list(struct scull_qset *head)
 {
@@ -264,6 +266,13 @@ static int __init scull_init(void)
                 return err;
         }
 
+        scull_class = class_create(THIS_MODULE, dev_name);
+        if (IS_ERR(scull_class)) {
+                pr_err("scull: fail to create device %s\n", dev_name);
+                return -1;
+        }
+        device_create(scull_class, NULL, dev_id, NULL, "scull" "%d", 0);
+
         return 0;
 }
 
@@ -271,6 +280,7 @@ static void __exit scull_exit(void)
 {
         int i;
         struct scull_dev *scull_dev = scull_device;
+        dev_t dev_id = scull_dev->cdev.dev;
         int qset = scull_dev->qset;
         struct scull_qset *iter_qset = &scull_dev->head;
 
@@ -300,6 +310,9 @@ static void __exit scull_exit(void)
         /* free scull_qset list */
         iter_qset = &scull_dev->head;
         scull_free_qset_list(iter_qset);
+
+        device_destroy(scull_class, dev_id);
+        class_destroy(scull_class);
 
         /* remove cdev before free scull_device */
         cdev_del(&scull_dev->cdev);
