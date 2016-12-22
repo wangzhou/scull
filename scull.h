@@ -3,6 +3,7 @@
 
 #include <linux/cdev.h>
 #include <linux/printk.h>
+#include <linux/mutex.h>
 
 #ifdef SCULL_DEBUG
         #define S_DEBUG(fmt, args...) pr_debug("scull: ", fmt, ## args)
@@ -25,6 +26,7 @@ struct scull_dev {
         int quantum;
         unsigned long size;
         struct cdev cdev;    
+        struct mutex mutex;
 };
 
 #endif /* _SCULL_H */

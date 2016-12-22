@@ -133,6 +133,7 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
         else
                 write_bytes = scull_dev->quantum - count;
 
+        mutex_lock(&scull_dev->mutex);
         /*
          * create related quantum. we will release quantum in scull_release
          * 1. find scull_qset from list; 2. create qset; 3. create quantum.
@@ -185,6 +186,8 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
 
         /* update off */
         *off = off_n + write_bytes;
+
+        mutex_unlock(&scull_dev->mutex);
 
         /* error handle */
 
@@ -249,6 +252,7 @@ static int __init scull_init(void)
         scull_device->qset = qset;
         scull_device->quantum = quantum;
         scull_device->size = 0;
+        mutex_init(&scull_device->mutex);
 
         /* alloc dev_id */
         err = alloc_chrdev_region(&dev_id, firstminor, count, dev_name);
