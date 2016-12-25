@@ -43,6 +43,10 @@ loff_t scull_llseek(struct file *file, loff_t off, int num)
 
 ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 {
+        /* test scull_ioctl */
+        pr_debug("test_scull: scull_dev->qset: %d\n", scull_dev->qset);
+        pr_debug("test_scull: scull_dev->quantum: %d\n", scull_dev->quantum);
+
         int i;
         int result;
         int qset_n;
@@ -197,6 +201,28 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
         return write_bytes;
 }
 
+/* just try to use ioctl, here using ioctl to modify qset/quantum is a stupid design */
+long scull_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+        struct scull_dev *scull_dev = file->private_data;
+
+        switch (cmd) {
+        case SCULL_SET_QSET:
+                qset = arg;
+                scull_dev->qset = arg;
+                break;
+        case SCULL_SET_QUANTUM:
+                quantum = arg;
+                scull_dev->quantum = quantum;
+                break;
+        default:
+                pr_err("scull: invalid ioctl command!\n");
+                return -EINVAL;
+        }
+
+        return 0;
+}
+
 int scull_open(struct inode *inode, struct file *file)
 {
         struct cdev *cdev;
@@ -224,7 +250,7 @@ struct file_operations scull_fops = {
         .llseek = NULL,
         .read = scull_read,
         .write = scull_write,
-        .unlocked_ioctl = NULL,
+        .unlocked_ioctl = scull_ioctl,
         .open = scull_open,
         .release = scull_release,
 };
