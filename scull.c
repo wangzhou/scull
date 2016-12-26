@@ -43,10 +43,6 @@ loff_t scull_llseek(struct file *file, loff_t off, int num)
 
 ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
 {
-        /* test scull_ioctl */
-        pr_debug("test_scull: scull_dev->qset: %d\n", scull_dev->qset);
-        pr_debug("test_scull: scull_dev->quantum: %d\n", scull_dev->quantum);
-
         int i;
         int result;
         int qset_n;
@@ -57,6 +53,10 @@ ssize_t scull_read(struct file *file, char __user *buf, size_t num, loff_t *off)
         int off_n = *off;
         struct scull_dev *scull_dev = file->private_data;
         struct scull_qset *iter_qset = &scull_dev->head;
+
+        /* test scull_ioctl */
+        pr_err("test_scull: scull_dev->qset: %d\n", scull_dev->qset);
+        pr_err("test_scull: scull_dev->quantum: %d\n", scull_dev->quantum);
 
         /* very important!! */
         if (off_n > scull_dev->size - 1)

@@ -2,7 +2,7 @@
 #include <sys/ioctl.h>  
 #include <unistd.h>  
 
-#include "./scull.h"
+#include "./uapi_scull.h"
 
 int main()  
 {  
@@ -10,7 +10,7 @@ int main()
         char *path="/dev/scull0";  
         char buff[11];
 
-        fd = open(path, "O_RDWR");  
+        fd = open(path, O_RDWR);
         if(fd < 0) {  
                 perror("open error\n");  
                 return -1;  
