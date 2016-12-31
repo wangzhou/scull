@@ -204,6 +204,9 @@ ssize_t scull_write(struct file *file, const char __user *buf, size_t num, loff_
 /* just try to use ioctl, here using ioctl to modify qset/quantum is a stupid design */
 long scull_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+        /* can not support multi-process */
+        int tmp;
+        struct uapi_parameter prmt;
         struct scull_dev *scull_dev = file->private_data;
 
         switch (cmd) {
@@ -213,7 +216,50 @@ long scull_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 break;
         case SCULL_SET_QUANTUM:
                 quantum = arg;
-                scull_dev->quantum = quantum;
+                scull_dev->quantum = arg;
+                break;
+        case SCULL_SET_QSET_Q:
+                /* int __user * */
+                if (!get_user(tmp, (int __user *)arg)) {
+                        qset = tmp;
+                        scull_dev->qset = tmp;
+                        break;
+                } else
+                        return -EFAULT;
+        case SCULL_SET_QUANTUM_Q:
+                if (!get_user(tmp, (int __user *)arg)) {
+                        quantum = tmp;
+                        scull_dev->quantum = tmp;
+                        break;
+                } else
+                        return -EFAULT;
+        case SCULL_SET_STRUCT_Q:
+                if (!copy_from_user(&prmt, (struct uapi_parameter *)arg, sizeof(prmt))) {
+                        qset = prmt.qset;
+                        quantum = prmt.quantum;
+                        scull_dev->qset = qset;
+                        scull_dev->quantum = quantum;
+                        break;
+                } else
+                        return -EFAULT;
+        case SCULL_GET_QSET:
+                /* we can do nothing here, must use point */
+        case SCULL_GET_QUANTUM:
+                /* we can do nothing here, must use point */
+                break;
+        case SCULL_GET_QSET_Q:
+                if (put_user(qset, (int *)arg))
+                        return -EFAULT;
+                break;
+        case SCULL_GET_QUANTUM_Q:
+                if (put_user(quantum, (int *)arg))
+                        return -EFAULT;
+                break;
+        case SCULL_GET_STRUCT_Q:
+                prmt.qset = qset;
+                prmt.quantum = quantum;
+                if (copy_to_user(((struct uapi_parameter *)arg), &prmt, sizeof(prmt)))
+                        return -EFAULT;
                 break;
         default:
                 pr_err("scull: invalid ioctl command!\n");
