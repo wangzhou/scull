@@ -1,5 +1,5 @@
 /* scull.c */
-#include <asm-generic/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -8,7 +8,6 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/types.h>
-#include <uapi/asm-generic/errno-base.h>
 #include "scull.h"
 #include "debug.h"
 
