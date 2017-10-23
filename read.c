@@ -1,5 +1,7 @@
 #include <fcntl.h>  
+#include <stdio.h>  
 #include <sys/ioctl.h>  
+#include <sys/mman.h>  
 #include <unistd.h>  
 
 #include "./uapi_scull.h"
@@ -14,6 +16,9 @@ int main()
 
         char *path="/dev/scull0";  
         char buff[11];
+
+        char *mmap;
+        int i;
 
         fd = open(path, O_RDWR);
         if(fd < 0) {  
@@ -42,7 +47,15 @@ int main()
 
         read(fd, buff, 10);  
 
+        mmap = (char *)mmap(0, 64, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if(mmap == MAP_FAILED)  
+                printf("mmap fail\n");  
+
+        for(i=0; i<10; i++)  
+                printf("%d\n", mmap[i]);
+
         close(fd);  
+
         return 1;  
 }  
 

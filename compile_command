@@ -1,0 +1,1 @@
+make -C ~/repos/linux/ M=/home/sherlock/tests/ldd3/scull modules

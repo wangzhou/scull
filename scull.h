@@ -28,6 +28,9 @@ struct scull_dev {
         unsigned long size;
         struct cdev cdev;    
         struct mutex mutex;
+
+        /* use to test mmap, init size = 64B */
+        char *mmap_memory;
 };
 
 struct uapi_parameter {

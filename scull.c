@@ -4,6 +4,7 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -290,6 +291,20 @@ int scull_release(struct inode *inode, struct file *file)
         return 0;
 }
 
+int scull_mmap(struct file *file, struct vm_area_struct *vma)
+{
+        unsigned long page = virt_to_phys(scull_device->mmap_memory);
+        unsigned long start = (unsigned long)vma->vm_start;
+        unsigned long size = (unsigned long)(vma->vm_end - vma->vm_start);
+
+        if (remap_pfn_range(vma, start, page >> PAGE_SHIFT, size, PAGE_SHARED)) {
+                printk(KERN_ALERT "remap_pfn_range failed!\n");
+                return -1;
+        }
+
+        return 0;
+}
+
 struct file_operations scull_fops = {
         .owner = THIS_MODULE,
         .llseek = NULL,
@@ -298,6 +313,7 @@ struct file_operations scull_fops = {
         .unlocked_ioctl = scull_ioctl,
         .open = scull_open,
         .release = scull_release,
+        .mmap = scull_mmap,
 };
 
 static int __init scull_init(void)
@@ -348,6 +364,11 @@ static int __init scull_init(void)
         }
         device_create(scull_class, NULL, dev_id, NULL, "scull" "%d", 0);
 
+        scull_device->mmap_memory = kzalloc(64, GFP_KERNEL);
+        scull_device->mmap_memory[0] = "0";
+        scull_device->mmap_memory[1] = "1";
+        scull_device->mmap_memory[2] = "2";
+
         return 0;
 }
 
@@ -392,8 +413,11 @@ static void __exit scull_exit(void)
         /* remove cdev before free scull_device */
         cdev_del(&scull_dev->cdev);
 
+        printk(KERN_ALERT "%s\n", scull_device->mmap_memory);
+        kfree(scull_device->mmap_memory);
+
         /* free scull_dev */
-        kfree(scull_dev);
+        kfree(scull_device);
 
         printk(KERN_ALERT "Goodbye, cruel world\n");
 }
