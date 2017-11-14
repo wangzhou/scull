@@ -296,6 +296,7 @@ int scull_mmap(struct file *file, struct vm_area_struct *vma)
         unsigned long page = virt_to_phys(scull_device->mmap_memory);
         unsigned long start = (unsigned long)vma->vm_start;
         unsigned long size = (unsigned long)(vma->vm_end - vma->vm_start);
+        vma->vm_flags |= (VM_IO | VM_LOCKED | VM_DONTEXPAND | VM_DONTDUMP);
 
         if (remap_pfn_range(vma, start, page >> PAGE_SHIFT, size, PAGE_SHARED)) {
                 printk(KERN_ALERT "remap_pfn_range failed!\n");
@@ -364,10 +365,15 @@ static int __init scull_init(void)
         }
         device_create(scull_class, NULL, dev_id, NULL, "scull" "%d", 0);
 
-        scull_device->mmap_memory = kzalloc(64, GFP_KERNEL);
-        scull_device->mmap_memory[0] = "0";
-        scull_device->mmap_memory[1] = "1";
-        scull_device->mmap_memory[2] = "2";
+        scull_device->mmap_memory = (char *)__get_free_page(GFP_KERNEL);
+        scull_device->mmap_memory[0] ='0';
+        scull_device->mmap_memory[1] ='1';
+        scull_device->mmap_memory[2] ='2';
+        scull_device->mmap_memory[3] ='3';
+        scull_device->mmap_memory[4] ='4';
+        scull_device->mmap_memory[5] ='5';
+        scull_device->mmap_memory[6] ='6';
+        scull_device->mmap_memory[7] ='7';
 
         return 0;
 }

@@ -1,1 +1,1 @@
-make -C ~/repos/linux/ M=/home/sherlock/tests/ldd3/scull modules
+make -C ~/repos/linux/ M=`pwd` modules

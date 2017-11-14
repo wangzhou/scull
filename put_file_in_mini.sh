@@ -9,7 +9,7 @@ gunzip ~/rootfs/rootfs.cpio.gz
 mv ~/rootfs/rootfs.cpio /tmp
 mkdir -p /tmp/rootfs
 cd /tmp/rootfs
-cpio -ivmd < ../rootfs.cpio
+cpio -ivmd --quiet < ../rootfs.cpio
 rm ../rootfs.cpio
 
 cp $1 /tmp/rootfs$2

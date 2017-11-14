@@ -17,7 +17,7 @@ int main()
         char *path="/dev/scull0";  
         char buff[11];
 
-        char *mmap;
+        void *addr;
         int i;
 
         fd = open(path, O_RDWR);
@@ -45,14 +45,14 @@ int main()
                 printf("test case 2: qset: %d, quantum: %d\n", test2_out.qset,
                        test2_out.quantum);
 
-        read(fd, buff, 10);  
+//        read(fd, buff, 10);
 
-        mmap = (char *)mmap(0, 64, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if(mmap == MAP_FAILED)  
+        addr = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if(addr == MAP_FAILED)
                 printf("mmap fail\n");  
 
         for(i=0; i<10; i++)  
-                printf("%d\n", mmap[i]);
+                printf("%c\n", *((char *)addr + i));
 
         close(fd);  
 
